@@ -1,0 +1,8 @@
+name: GitHub File Update
+on: workflow_dispatch
+jobs:
+  github-file-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log GitHub context
+        run: echo "${{ toJSON(github) }}"
