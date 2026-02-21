@@ -2,6 +2,16 @@ name: GitHub File Update
 on:
   workflow_dispatch:
     inputs:
+      commit-message:
+        default: "[MISC] Update GitHub files"
+        description: "Commit message:"
+        required: true
+        type: string
+      head-branch:
+        default: "misc/github-file-update"
+        description: "Name of the head branch:"
+        required: true
+        type: string
       repository:
         description: "Name of the target repository:"
         required: true
@@ -52,7 +62,7 @@ jobs:
 
           echo "SOURCE_FOLDER=$SOURCE_FOLDER" >> $GITHUB_OUTPUT
           echo "TARGET_FOLDER=$TARGET_FOLDER" >> $GITHUB_OUTPUT
-      - name: Update code owners file in target repository
+      - name: Update code owners file in local target repository
         if: inputs.should-update-code-owners
         run: |
           mkdir -p "${{ steps.variables.outputs.TARGET_FOLDER }}"
@@ -62,7 +72,7 @@ jobs:
           mv -f \
             "${{ steps.variables.outputs.SOURCE_FOLDER }}/$CODE_OWNERS_FILE_PATH" \
             "${{ env.TARGET_REPOSITORY }}/$CODE_OWNERS_FILE_PATH"
-      - name: Update main pull request template in target repository
+      - name: Update main pull request template in local target repository
         if: inputs.should-update-main-pull-request-template
         run: |
           mkdir -p "${{ steps.variables.outputs.TARGET_FOLDER }}"
@@ -76,3 +86,15 @@ jobs:
         run: |
           find -name "${{ env.CODE_OWNERS_FILE }}"
           find -name "${{ env.MAIN_PULL_REQUEST_TEMPLATE_FILE }}"
+      - name: Force push changes to remote target repository
+        run: |
+          cd "${{ env.TARGET_REPOSITORY }}"
+
+          git config --global user.email "${{ github.triggering_actor }}@users.noreply.github.com"
+          git config --global user.name "${{ github.triggering_actor }}"
+
+          git switch -c ${{ inputs.head-branch }}
+
+          git add .
+          git commit -m "${{ inputs.commit-message }}"
+          git push origin "${{ inputs.head-branch }}" -fu
