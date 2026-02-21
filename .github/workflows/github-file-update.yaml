@@ -27,7 +27,7 @@ jobs:
           repository: ${{ env.TARGET_REPOSITORY }}
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN || github.token }}
       - name: Log checked out files
-        run: echo "$(ls -aR)"
+        run: find .
       - name: Update code owners file in target repository
         run: |
           mkdir -p "${{ env.TARGET_REPOSITORY }}/${{ env.GITHUB_FOLDER }}"
