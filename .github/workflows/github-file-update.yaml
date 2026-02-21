@@ -3,25 +3,39 @@ on:
   workflow_dispatch:
     inputs:
       repository:
-        default: ""
         description: "Name of the target repository:"
         required: true
         type: string
 jobs:
   github-file-update:
+    env:
+      CODE_OWNERS_FILE: "CODEOWNERS"
+      GITHUB_FOLDER: ".github"
+      SOURCE_FOLDER: "github-file-update"
+      SOURCE_REPOSITORY: "${{ github.repository }}"
+      TARGET_REPOSITORY: "${{ github.repository_owner }}/${{ inputs.repository }}"
     runs-on: ubuntu-latest
     steps:
-      - name: Check out the repository containing the GitHub files
+      - name: Check out the source repository
         uses: actions/checkout@v6
         with:
-          path: ${{ github.repository }}
+          path: ${{ env.SOURCE_REPOSITORY }}
       - name: Check out the target repository
-        env:
-          TARGET_PATH: ${{ github.repository_owner }}/${{ inputs.repository }}
         uses: actions/checkout@v6
         with:
-          path: ${{ env.TARGET_PATH }}
-          repository: ${{ env.TARGET_PATH }}
+          path: ${{ env.TARGET_REPOSITORY }}
+          repository: ${{ env.TARGET_REPOSITORY }}
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN || github.token }}
       - name: Log checked out files
         run: echo "$(ls -aR)"
+      - name: Update code owners file in target repository
+        run: |
+          mkdir -p "${{ env.TARGET_REPOSITORY }}/${{ env.GITHUB_FOLDER }}"
+
+          CODE_OWNERS_FILE_PATH="${{ env.GITHUB_FOLDER }}/${{ env.CODE_OWNERS_FILE }}"
+
+          mv -f \
+            "${{ env.SOURCE_REPOSITORY }}/${{ env.SOURCE_FOLDER }}/$CODE_OWNERS_FILE_PATH" \
+            "${{ env.TARGET_REPOSITORY }}/$CODE_OWNERS_FILE_PATH"
+      - name: Log moved file's path
+        run: find -name "${{ env.CODE_OWNERS_FILE }}"
