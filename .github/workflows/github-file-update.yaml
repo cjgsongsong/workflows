@@ -11,7 +11,7 @@ jobs:
     env:
       CODE_OWNERS_FILE: "CODEOWNERS"
       GITHUB_FOLDER: ".github"
-      SOURCE_FOLDER: "github-file-update"
+      MAIN_PULL_REQUEST_TEMPLATE_FILE: "pull-request-template.md"
       SOURCE_REPOSITORY: "${{ github.repository }}"
       TARGET_REPOSITORY: "${{ github.repository_owner }}/${{ inputs.repository }}"
     runs-on: ubuntu-latest
@@ -28,14 +28,36 @@ jobs:
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN || github.token }}
       - name: Log checked out files
         run: find .
+      - name: Set up variables
+        id: variables
+        run: |
+          SOURCE_FOLDER="${{ env.SOURCE_REPOSITORY }}/github-file-update"
+          TARGET_FOLDER="${{ env.TARGET_REPOSITORY }}/${{ env.GITHUB_FOLDER }}"
+
+          echo "$SOURCE_FOLDER"
+          echo "$TARGET_FOLDER"
+
+          echo "SOURCE_FOLDER=$SOURCE_FOLDER" >> $GITHUB_OUTPUT
+          echo "TARGET_FOLDER=$TARGET_FOLDER" >> $GITHUB_OUTPUT
       - name: Update code owners file in target repository
         run: |
-          mkdir -p "${{ env.TARGET_REPOSITORY }}/${{ env.GITHUB_FOLDER }}"
+          mkdir -p "${{ steps.variables.outputs.TARGET_FOLDER }}"
 
           CODE_OWNERS_FILE_PATH="${{ env.GITHUB_FOLDER }}/${{ env.CODE_OWNERS_FILE }}"
 
           mv -f \
-            "${{ env.SOURCE_REPOSITORY }}/${{ env.SOURCE_FOLDER }}/$CODE_OWNERS_FILE_PATH" \
+            "${{ steps.variables.outputs.SOURCE_FOLDER }}/$CODE_OWNERS_FILE_PATH" \
             "${{ env.TARGET_REPOSITORY }}/$CODE_OWNERS_FILE_PATH"
-      - name: Log moved file's path
-        run: find -name "${{ env.CODE_OWNERS_FILE }}"
+      - name: Update main pull request template in target repository
+        run: |
+          mkdir -p "${{ steps.variables.outputs.TARGET_FOLDER }}"
+
+          MAIN_PULL_REQUEST_TEMPLATE_PATH="${{ env.GITHUB_FOLDER }}/${{ env.MAIN_PULL_REQUEST_TEMPLATE_FILE }}"
+
+          mv -f \
+            "${{ steps.variables.outputs.SOURCE_FOLDER }}/$MAIN_PULL_REQUEST_TEMPLATE_PATH" \
+            "${{ env.TARGET_REPOSITORY }}/$MAIN_PULL_REQUEST_TEMPLATE_PATH"
+      - name: Log paths of moved files
+        run: |
+          find -name "${{ env.CODE_OWNERS_FILE }}"
+          find -name "${{ env.MAIN_PULL_REQUEST_TEMPLATE_FILE }}"
