@@ -1,8 +1,27 @@
 name: GitHub File Update
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        default: ""
+        description: "Name of the target repository:"
+        required: true
+        type: string
 jobs:
   github-file-update:
     runs-on: ubuntu-latest
     steps:
-      - name: Log GitHub context
-        run: echo "${{ toJSON(github) }}"
+      - name: Check out the repository containing the GitHub files
+        uses: actions/checkout@v6
+        with:
+          path: ${{ github.repository }}
+      - name: Check out the target repository
+        env:
+          TARGET_PATH: ${{ github.repository_owner }}/${{ inputs.repository }}
+        uses: actions/checkout@v6
+        with:
+          path: ${{ env.TARGET_PATH }}
+          repository: ${{ env.TARGET_PATH }}
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN || github.token }}
+      - name: Log checked out files
+        run: echo "$(ls -aR)"
