@@ -6,6 +6,16 @@ on:
         description: "Name of the target repository:"
         required: true
         type: string
+      should-update-code-owners:
+        default: false
+        description: "Update code owners file?"
+        required: true
+        type: boolean
+      should-update-main-pull-request-template:
+        default: false
+        description: "Update main pull request template?"
+        required: true
+        type: boolean
 jobs:
   github-file-update:
     env:
@@ -14,6 +24,9 @@ jobs:
       MAIN_PULL_REQUEST_TEMPLATE_FILE: "pull-request-template.md"
       SOURCE_REPOSITORY: "${{ github.repository }}"
       TARGET_REPOSITORY: "${{ github.repository_owner }}/${{ inputs.repository }}"
+    if: |
+      inputs.should-update-code-owners ||
+      inputs.should-update-main-pull-request-template
     runs-on: ubuntu-latest
     steps:
       - name: Check out the source repository
@@ -40,6 +53,7 @@ jobs:
           echo "SOURCE_FOLDER=$SOURCE_FOLDER" >> $GITHUB_OUTPUT
           echo "TARGET_FOLDER=$TARGET_FOLDER" >> $GITHUB_OUTPUT
       - name: Update code owners file in target repository
+        if: inputs.should-update-code-owners
         run: |
           mkdir -p "${{ steps.variables.outputs.TARGET_FOLDER }}"
 
@@ -49,6 +63,7 @@ jobs:
             "${{ steps.variables.outputs.SOURCE_FOLDER }}/$CODE_OWNERS_FILE_PATH" \
             "${{ env.TARGET_REPOSITORY }}/$CODE_OWNERS_FILE_PATH"
       - name: Update main pull request template in target repository
+        if: inputs.should-update-main-pull-request-template
         run: |
           mkdir -p "${{ steps.variables.outputs.TARGET_FOLDER }}"
 
@@ -57,7 +72,7 @@ jobs:
           mv -f \
             "${{ steps.variables.outputs.SOURCE_FOLDER }}/$MAIN_PULL_REQUEST_TEMPLATE_PATH" \
             "${{ env.TARGET_REPOSITORY }}/$MAIN_PULL_REQUEST_TEMPLATE_PATH"
-      - name: Log paths of moved files
+      - name: Log relevant file paths
         run: |
           find -name "${{ env.CODE_OWNERS_FILE }}"
           find -name "${{ env.MAIN_PULL_REQUEST_TEMPLATE_FILE }}"
