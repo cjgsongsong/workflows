@@ -12,6 +12,11 @@ on:
         description: "Name of the head branch:"
         required: true
         type: string
+      pull-request-title:
+        default: "[MISC] Update GitHub files"
+        description: "Pull request title:"
+        required: true
+        type: string
       repository:
         description: "Name of the target repository:"
         required: true
@@ -34,6 +39,7 @@ jobs:
       MAIN_PULL_REQUEST_TEMPLATE_FILE: "pull-request-template.md"
       SOURCE_REPOSITORY: "${{ github.repository }}"
       TARGET_REPOSITORY: "${{ github.repository_owner }}/${{ inputs.repository }}"
+      WORKFLOW_TOKEN: "${{ secrets.PERSONAL_ACCESS_TOKEN || github.token }}"
     if: |
       inputs.should-update-code-owners ||
       inputs.should-update-main-pull-request-template
@@ -48,19 +54,25 @@ jobs:
         with:
           path: ${{ env.TARGET_REPOSITORY }}
           repository: ${{ env.TARGET_REPOSITORY }}
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN || github.token }}
+          token: ${{ env.WORKFLOW_TOKEN }}
       - name: Log checked out files
         run: find .
       - name: Set up variables
         id: variables
         run: |
+          MAIN_PULL_REQUEST_TEMPLATE_PATH="${{ env.GITHUB_FOLDER }}/${{ env.MAIN_PULL_REQUEST_TEMPLATE_FILE }}"
           SOURCE_FOLDER="${{ env.SOURCE_REPOSITORY }}/github-file-update"
+          SOURCE_MAIN_PULL_REQUEST_TEMPLATE_PATH="$SOURCE_FOLDER/$MAIN_PULL_REQUEST_TEMPLATE_PATH"
           TARGET_FOLDER="${{ env.TARGET_REPOSITORY }}/${{ env.GITHUB_FOLDER }}"
 
+          echo "$MAIN_PULL_REQUEST_TEMPLATE_PATH"
           echo "$SOURCE_FOLDER"
+          echo "$SOURCE_MAIN_PULL_REQUEST_TEMPLATE_PATH"
           echo "$TARGET_FOLDER"
 
+          echo "MAIN_PULL_REQUEST_TEMPLATE_PATH=$MAIN_PULL_REQUEST_TEMPLATE_PATH" >> $GITHUB_OUTPUT
           echo "SOURCE_FOLDER=$SOURCE_FOLDER" >> $GITHUB_OUTPUT
+          echo "SOURCE_MAIN_PULL_REQUEST_TEMPLATE_PATH=$SOURCE_MAIN_PULL_REQUEST_TEMPLATE_PATH" >> $GITHUB_OUTPUT
           echo "TARGET_FOLDER=$TARGET_FOLDER" >> $GITHUB_OUTPUT
       - name: Update code owners file in local target repository
         if: inputs.should-update-code-owners
@@ -69,7 +81,7 @@ jobs:
 
           CODE_OWNERS_FILE_PATH="${{ env.GITHUB_FOLDER }}/${{ env.CODE_OWNERS_FILE }}"
 
-          mv -f \
+          cp -f \
             "${{ steps.variables.outputs.SOURCE_FOLDER }}/$CODE_OWNERS_FILE_PATH" \
             "${{ env.TARGET_REPOSITORY }}/$CODE_OWNERS_FILE_PATH"
       - name: Update main pull request template in local target repository
@@ -77,24 +89,20 @@ jobs:
         run: |
           mkdir -p "${{ steps.variables.outputs.TARGET_FOLDER }}"
 
-          MAIN_PULL_REQUEST_TEMPLATE_PATH="${{ env.GITHUB_FOLDER }}/${{ env.MAIN_PULL_REQUEST_TEMPLATE_FILE }}"
-
-          mv -f \
-            "${{ steps.variables.outputs.SOURCE_FOLDER }}/$MAIN_PULL_REQUEST_TEMPLATE_PATH" \
-            "${{ env.TARGET_REPOSITORY }}/$MAIN_PULL_REQUEST_TEMPLATE_PATH"
+          cp -f \
+            "${{ steps.variables.outputs.SOURCE_MAIN_PULL_REQUEST_TEMPLATE_PATH }}" \
+            "${{ env.TARGET_REPOSITORY }}/${{ steps.variables.outputs.MAIN_PULL_REQUEST_TEMPLATE_PATH }}"
       - name: Log relevant file paths
         run: |
           find -name "${{ env.CODE_OWNERS_FILE }}"
           find -name "${{ env.MAIN_PULL_REQUEST_TEMPLATE_FILE }}"
-      - name: Force push changes to remote target repository
-        run: |
-          cd "${{ env.TARGET_REPOSITORY }}"
-
-          git config --global user.email "${{ github.triggering_actor }}@users.noreply.github.com"
-          git config --global user.name "${{ github.triggering_actor }}"
-
-          git switch -c ${{ inputs.head-branch }}
-
-          git add .
-          git commit -m "${{ inputs.commit-message }}"
-          git push origin "${{ inputs.head-branch }}" -fu
+      - name: Create pull request in remote target repository
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: ${{ inputs.head-branch }}
+          body-path: ${{ steps.variables.outputs.SOURCE_MAIN_PULL_REQUEST_TEMPLATE_PATH }}
+          commit-message: ${{ inputs.commit-message }}
+          committer: "${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>"
+          path: ${{ env.TARGET_REPOSITORY }}
+          title: ${{ inputs.pull-request-title }}
+          token: ${{ env.WORKFLOW_TOKEN }}
