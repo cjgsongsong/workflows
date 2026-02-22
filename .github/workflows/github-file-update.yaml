@@ -96,6 +96,80 @@ jobs:
         run: |
           find -name "${{ env.CODE_OWNERS_FILE }}"
           find -name "${{ env.MAIN_PULL_REQUEST_TEMPLATE_FILE }}"
+      - name: Create pull request description by filling out source main pull request template's
+        run: |
+          PULL_REQUEST_TEMPLATE_PATH="${{ steps.variables.outputs.SOURCE_MAIN_PULL_REQUEST_TEMPLATE_PATH }}" 
+          PULL_REQUEST_TEMPLATE_COPY_PATH="$PULL_REQUEST_TEMPLATE_PATH.tmp"
+
+          awk \
+            -v SUMMARY_HEADER="## Summary" \
+            -v SUMMARY="\n\nGitHub files are updated." \
+            "{ sub(SUMMARY_HEADER, SUMMARY_HEADER SUMMARY) }; 1" \
+            "$PULL_REQUEST_TEMPLATE_PATH" >> "$PULL_REQUEST_TEMPLATE_COPY_PATH"
+
+          mv \
+            "$PULL_REQUEST_TEMPLATE_COPY_PATH" \
+            "$PULL_REQUEST_TEMPLATE_PATH"
+
+          awk \
+            -v MOTIVATIONS_HEADER="## Motivation/s" \
+            -v MOTIVATIONS="\n\nN/A" \
+            "{ sub(MOTIVATIONS_HEADER, MOTIVATIONS_HEADER MOTIVATIONS) }; 1" \
+            "$PULL_REQUEST_TEMPLATE_PATH" >> "$PULL_REQUEST_TEMPLATE_COPY_PATH"
+
+          mv \
+            "$PULL_REQUEST_TEMPLATE_COPY_PATH" \
+            "$PULL_REQUEST_TEMPLATE_PATH"
+
+          CHANGES_ITEM="- updated"
+
+          awk \
+            -v CHANGES_HEADER="## Change/s" \
+            -v CHANGES_ITEM="\n\n$CHANGES_ITEM" \
+            "{ sub(CHANGES_HEADER, CHANGES_HEADER CHANGES_ITEM) }; 1" \
+            "$PULL_REQUEST_TEMPLATE_PATH" >> "$PULL_REQUEST_TEMPLATE_COPY_PATH"
+
+          mv \
+            "$PULL_REQUEST_TEMPLATE_COPY_PATH" \
+            "$PULL_REQUEST_TEMPLATE_PATH"
+
+          if ${{ inputs.should-update-main-pull-request-template }}; then
+            awk \
+              -v CHANGES_ITEM="$CHANGES_ITEM" \
+              -v CHANGES_SUB_ITEM="\n  - main pull request template" \
+              "{ sub(CHANGES_ITEM, CHANGES_ITEM CHANGES_SUB_ITEM) }; 1" \
+              "$PULL_REQUEST_TEMPLATE_PATH" >> "$PULL_REQUEST_TEMPLATE_COPY_PATH"
+
+            cat $PULL_REQUEST_TEMPLATE_COPY_PATH
+
+            mv \
+              "$PULL_REQUEST_TEMPLATE_COPY_PATH" \
+              "$PULL_REQUEST_TEMPLATE_PATH"
+          fi
+
+          if ${{ inputs.should-update-code-owners }}; then
+            awk \
+              -v CHANGES_ITEM="$CHANGES_ITEM" \
+              -v CHANGES_SUB_ITEM="\n  - code owners file" \
+              "{ sub(CHANGES_ITEM, CHANGES_ITEM CHANGES_SUB_ITEM) }; 1" \
+              "$PULL_REQUEST_TEMPLATE_PATH" >> "$PULL_REQUEST_TEMPLATE_COPY_PATH"
+
+            mv \
+              "$PULL_REQUEST_TEMPLATE_COPY_PATH" \
+              "$PULL_REQUEST_TEMPLATE_PATH"
+          fi
+
+          awk \
+            -v SCREENSHOTS_HEADER="## Screenshot/s" \
+            -v SCREENSHOTS="\n\nN/A" \
+            "{ sub(SCREENSHOTS_HEADER, SCREENSHOTS_HEADER SCREENSHOTS) }; 1" \
+            "$PULL_REQUEST_TEMPLATE_PATH" >> "$PULL_REQUEST_TEMPLATE_COPY_PATH"
+
+          mv \
+            "$PULL_REQUEST_TEMPLATE_COPY_PATH" \
+            "$PULL_REQUEST_TEMPLATE_PATH"
+      - name: Log pull request description
+        run: cat ${{ steps.variables.outputs.SOURCE_MAIN_PULL_REQUEST_TEMPLATE_PATH }}
       - name: Create pull request in remote target repository
         uses: peter-evans/create-pull-request@v8
         with:
